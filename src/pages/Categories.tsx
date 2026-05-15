@@ -6,7 +6,6 @@ import {
     Card,
     CardContent,
     Grid,
-    Chip,
     IconButton,
     Dialog,
     DialogTitle,
@@ -16,16 +15,25 @@ import {
     MenuItem,
     CircularProgress,
 } from '@mui/material';
-import { Add, Edit, Delete, Category as CategoryIcon } from '@mui/icons-material';
-import { api } from '../services/api';
+import { Add, Edit, Delete } from '@mui/icons-material';
+import { api, Category } from '../services/api';
 import { useSnackbar } from '../components/SnackbarContext';
 
+// ============ TYPES ============
+interface CategoryFormData {
+    name: string;
+    type: 'income' | 'expense';
+    icon: string;
+    color: string;
+}
+
+// ============ COMPONENT ============
 const Categories = () => {
-    const [categories, setCategories] = useState([]);
-    const [loading, setLoading] = useState(true);
-    const [dialogOpen, setDialogOpen] = useState(false);
-    const [editingCategory, setEditingCategory] = useState(null);
-    const [formData, setFormData] = useState({
+    const [categories, setCategories] = useState<Category[]>([]);
+    const [loading, setLoading] = useState<boolean>(true);
+    const [dialogOpen, setDialogOpen] = useState<boolean>(false);
+    const [editingCategory, setEditingCategory] = useState<Category | null>(null);
+    const [formData, setFormData] = useState<CategoryFormData>({
         name: '',
         type: 'expense',
         icon: '',
@@ -37,25 +45,26 @@ const Categories = () => {
         fetchCategories();
     }, []);
 
-    const fetchCategories = async () => {
+    const fetchCategories = async (): Promise<void> => {
         try {
             setLoading(true);
-            const data = await api.getCategories();
+            const data = await api.getCategories<Category[]>();
             setCategories(data);
         } catch (error) {
-            showSnackbar('Failed to load categories', 'error');
+            const errorMessage = error instanceof Error ? error.message : 'Failed to load categories';
+            showSnackbar(errorMessage, 'error');
         } finally {
             setLoading(false);
         }
     };
 
-    const handleOpenDialog = (category = null) => {
+    const handleOpenDialog = (category: Category | null = null): void => {
         if (category) {
             setEditingCategory(category);
             setFormData({
                 name: category.name,
                 type: category.type,
-                icon: category.icon || '',
+                icon: category.color || '', // Using color field for icon in form
                 color: category.color || '#FF6B6B',
             });
         } else {
@@ -70,28 +79,37 @@ const Categories = () => {
         setDialogOpen(true);
     };
 
-    const handleCloseDialog = () => {
+    const handleCloseDialog = (): void => {
         setDialogOpen(false);
         setEditingCategory(null);
     };
 
-    const handleSubmit = async () => {
+    const handleSubmit = async (): Promise<void> => {
         try {
             if (editingCategory) {
-                await api.updateCategory(editingCategory.id, formData);
+                await api.updateCategory(editingCategory.id, {
+                    name: formData.name,
+                    type: formData.type,
+                    color: formData.color,
+                });
                 showSnackbar('Category updated successfully', 'success');
             } else {
-                await api.createCategory(formData);
+                await api.createCategory({
+                    name: formData.name,
+                    type: formData.type,
+                    color: formData.color,
+                });
                 showSnackbar('Category created successfully', 'success');
             }
             handleCloseDialog();
             fetchCategories();
         } catch (error) {
-            showSnackbar(error.message || 'Failed to save category', 'error');
+            const errorMessage = error instanceof Error ? error.message : 'Failed to save category';
+            showSnackbar(errorMessage, 'error');
         }
     };
 
-    const handleDelete = async (id) => {
+    const handleDelete = async (id: number): Promise<void> => {
         if (!window.confirm('Are you sure you want to delete this category?')) return;
 
         try {
@@ -99,12 +117,13 @@ const Categories = () => {
             showSnackbar('Category deleted successfully', 'success');
             fetchCategories();
         } catch (error) {
-            showSnackbar(error.message || 'Failed to delete category', 'error');
+            const errorMessage = error instanceof Error ? error.message : 'Failed to delete category';
+            showSnackbar(errorMessage, 'error');
         }
     };
 
-    const expenseCategories = categories.filter(c => c.type === 'expense');
-    const incomeCategories = categories.filter(c => c.type === 'income');
+    const expenseCategories = categories.filter((c: Category) => c.type === 'expense');
+    const incomeCategories = categories.filter((c: Category) => c.type === 'income');
 
     if (loading) {
         return (
@@ -116,7 +135,15 @@ const Categories = () => {
 
     return (
         <Box>
-            <Box display="flex" flexDirection={{ xs: 'column', sm: 'row' }} justifyContent="space-between" alignItems={{ xs: 'flex-start', sm: 'center' }} mb={3} gap={{ xs: 2, sm: 0 }}>
+            {/* Header */}
+            <Box 
+                display="flex" 
+                flexDirection={{ xs: 'column', sm: 'row' }} 
+                justifyContent="space-between" 
+                alignItems={{ xs: 'flex-start', sm: 'center' }} 
+                mb={3} 
+                gap={{ xs: 2, sm: 0 }}
+            >
                 <Typography variant="h4" fontWeight={700}>
                     Categories
                 </Typography>
@@ -132,13 +159,14 @@ const Categories = () => {
             </Box>
 
             <Grid container spacing={3}>
-                <Grid item xs={12} md={6}>
+                {/* Expense Categories */}
+                <Grid size={{ xs: 12, md: 6 }}>
                     <Typography variant="h6" fontWeight={600} mb={2} color="error.main">
                         Expense Categories
                     </Typography>
                     <Grid container spacing={2}>
                         {expenseCategories.map((category) => (
-                            <Grid item xs={12} sm={6} key={category.id}>
+                            <Grid size={{ xs: 12, sm: 6 }} key={category.id}>
                                 <Card>
                                     <CardContent sx={{ p: { xs: 1.5, sm: 2 }, '&:last-child': { pb: { xs: 1.5, sm: 2 } } }}>
                                         <Box display="flex" justifyContent="space-between" alignItems="center">
@@ -171,13 +199,14 @@ const Categories = () => {
                     </Grid>
                 </Grid>
 
-                <Grid item xs={12} md={6}>
+                {/* Income Categories */}
+                <Grid size={{ xs: 12, md: 6 }}>
                     <Typography variant="h6" fontWeight={600} mb={2} color="success.main">
                         Income Categories
                     </Typography>
                     <Grid container spacing={2}>
                         {incomeCategories.map((category) => (
-                            <Grid item xs={12} sm={6} key={category.id}>
+                            <Grid size={{ xs: 12, sm: 6 }} key={category.id}>
                                 <Card>
                                     <CardContent sx={{ p: { xs: 1.5, sm: 2 }, '&:last-child': { pb: { xs: 1.5, sm: 2 } } }}>
                                         <Box display="flex" justifyContent="space-between" alignItems="center">
@@ -211,6 +240,7 @@ const Categories = () => {
                 </Grid>
             </Grid>
 
+            {/* Add/Edit Dialog */}
             <Dialog open={dialogOpen} onClose={handleCloseDialog} maxWidth="sm" fullWidth>
                 <DialogTitle>
                     {editingCategory ? 'Edit Category' : 'Add Category'}
@@ -228,7 +258,7 @@ const Categories = () => {
                             label="Type"
                             fullWidth
                             value={formData.type}
-                            onChange={(e) => setFormData({ ...formData, type: e.target.value })}
+                            onChange={(e) => setFormData({ ...formData, type: e.target.value as 'income' | 'expense' })}
                         >
                             <MenuItem value="expense">Expense</MenuItem>
                             <MenuItem value="income">Income</MenuItem>

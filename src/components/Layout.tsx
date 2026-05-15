@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import {
     Box,
@@ -37,50 +37,72 @@ import {
     People,
 } from '@mui/icons-material';
 import { useAuth } from '../auth/AuthContext';
-import { useThemeMode } from '../theme.jsx';
+import { useThemeMode } from '../theme';
 
+// ============ TYPES ============
+interface MenuItem {
+    text: string;
+    path: string;
+    icon: React.ComponentType;
+    adminOnly?: boolean;
+}
+
+interface User {
+    id: number;
+    name: string;
+    email: string;
+    is_admin?: boolean;
+    is_active?: boolean;
+}
+
+interface LayoutProps {
+    children: React.ReactNode;
+}
+
+// ============ CONSTANTS ============
 const drawerWidth = 280;
-const miniDrawerWidth = 80; // Width when collapsed
+const miniDrawerWidth = 80;
 
-const Layout = ({ children }) => {
-    const { logout, user } = useAuth();
-    const { mode, toggleTheme } = useThemeMode();
+// ============ COMPONENT ============
+const Layout = ({ children }: LayoutProps) => {
+    const { logout, user } = useAuth() as { logout: () => void; user: User | null };
+    const { mode, toggleTheme } = useThemeMode() as { mode: 'dark' | 'light'; toggleTheme: () => void };
     const location = useLocation();
     const theme = useTheme();
     const isDesktop = useMediaQuery(theme.breakpoints.up('md'));
 
     // Sidebar State - Start closed to prevent mobile flash/backdrop issues
-    const [sidebarOpen, setSidebarOpen] = React.useState(false);
+    const [sidebarOpen, setSidebarOpen] = useState<boolean>(false);
 
     // Profile Menu State
-    const [anchorEl, setAnchorEl] = React.useState(null);
+    const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
     const openMenu = Boolean(anchorEl);
 
     // Auto-expand sidebar on desktop on init
-    React.useEffect(() => {
+    useEffect(() => {
         if (isDesktop) {
             setSidebarOpen(true);
         }
     }, [isDesktop]);
 
-    const handleSidebarToggle = () => {
+    const handleSidebarToggle = (): void => {
         setSidebarOpen(!sidebarOpen);
     };
 
-    const handleProfileClick = (event) => {
+    const handleProfileClick = (event: React.MouseEvent<HTMLElement>): void => {
         setAnchorEl(event.currentTarget);
     };
 
-    const handleProfileClose = () => {
+    const handleProfileClose = (): void => {
         setAnchorEl(null);
     };
 
-    const handleLogout = () => {
+    const handleLogout = (): void => {
         handleProfileClose();
         logout();
     };
 
-    const menuItems = [
+    const menuItems: MenuItem[] = [
         { text: 'Dashboard', path: '/dashboard', icon: DashboardIcon },
         { text: 'Transactions', path: '/add', icon: ReceiptLong },
         { text: 'Analysis', path: '/analysis', icon: Savings, adminOnly: true },
@@ -194,6 +216,8 @@ const Layout = ({ children }) => {
                         </ListItem>
                     );
                 })}
+                
+                {/* Profile Menu Item */}
                 <ListItem disablePadding sx={{ mb: 1, display: 'block' }}>
                     <ListItemButton
                         component={Link}
@@ -248,9 +272,11 @@ const Layout = ({ children }) => {
                         )}
                     </ListItemButton>
                 </ListItem>
+                
+                {/* Logout Menu Item */}
                 <ListItem disablePadding sx={{ mb: 1, display: 'block' }}>
                     <ListItemButton
-                        onClick={logout}
+                        onClick={handleLogout}
                         sx={{
                             minHeight: 48,
                             justifyContent: sidebarOpen || !isDesktop ? 'initial' : 'center',
@@ -338,10 +364,22 @@ const Layout = ({ children }) => {
 
                         <Divider orientation="vertical" flexItem variant="middle" sx={{ mx: 1, height: 24, my: 'auto' }} />
 
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, cursor: 'pointer', p: 0.5, borderRadius: 2, '&:hover': { bgcolor: 'action.hover' } }} onClick={handleProfileClick}>
+                        <Box 
+                            sx={{ 
+                                display: 'flex', 
+                                alignItems: 'center', 
+                                gap: 1, 
+                                cursor: 'pointer', 
+                                p: 0.5, 
+                                borderRadius: 2, 
+                                '&:hover': { bgcolor: 'action.hover' } 
+                            }} 
+                            onClick={handleProfileClick}
+                        >
                             <Box sx={{ textAlign: 'right', display: { xs: 'none', sm: 'block' } }}>
-                                <Typography variant="subtitle2" sx={{ fontWeight: 600, lineHeight: 1.2 }}>{user?.name || 'User'}</Typography>
-
+                                <Typography variant="subtitle2" sx={{ fontWeight: 600, lineHeight: 1.2 }}>
+                                    {user?.name || 'User'}
+                                </Typography>
                             </Box>
                             <Avatar sx={{ width: 36, height: 36, bgcolor: 'primary.light' }}>
                                 {user?.name ? user.name[0].toUpperCase() : <Person />}
@@ -379,17 +417,32 @@ const Layout = ({ children }) => {
                         >
                             <Box sx={{ px: 2, py: 1.5, borderBottom: '1px solid', borderColor: 'divider', mb: 1 }}>
                                 <Typography variant="subtitle2" fontWeight={700}>Signed in as</Typography>
-                                <Typography variant="body2" color="text.secondary" noWrap>{user?.email}</Typography>
+                                <Typography variant="body2" color="text.secondary" noWrap>
+                                    {user?.email}
+                                </Typography>
                             </Box>
-                            <MenuItem onClick={handleProfileClose} sx={{ borderRadius: 1, mx: 1 }}>
-                                <ListItemIcon><Person fontSize="small" /></ListItemIcon> Profile
+                            <MenuItem 
+                                component={Link}
+                                to="/profile"
+                                onClick={handleProfileClose} 
+                                sx={{ borderRadius: 1, mx: 1 }}
+                            >
+                                <ListItemIcon><Person fontSize="small" /></ListItemIcon> 
+                                Profile
                             </MenuItem>
-                            <MenuItem onClick={handleProfileClose} sx={{ borderRadius: 1, mx: 1 }}>
-                                <ListItemIcon><Settings fontSize="small" /></ListItemIcon> Settings
+                            <MenuItem 
+                                component={Link}
+                                to="/settings"
+                                onClick={handleProfileClose} 
+                                sx={{ borderRadius: 1, mx: 1 }}
+                            >
+                                <ListItemIcon><Settings fontSize="small" /></ListItemIcon> 
+                                Settings
                             </MenuItem>
                             <Divider sx={{ my: 1 }} />
                             <MenuItem onClick={handleLogout} sx={{ borderRadius: 1, mx: 1, color: 'error.main' }}>
-                                <ListItemIcon><Logout fontSize="small" color="error" /></ListItemIcon> Logout
+                                <ListItemIcon><Logout fontSize="small" color="error" /></ListItemIcon> 
+                                Logout
                             </MenuItem>
                         </Menu>
                     </Box>
@@ -439,7 +492,7 @@ const Layout = ({ children }) => {
                                 easing: theme.transitions.easing.sharp,
                                 duration: theme.transitions.duration.enteringScreen,
                             }),
-                            overflowX: 'hidden', // Hide overflow content when collapsed
+                            overflowX: 'hidden',
                             borderRight: '1px solid',
                             borderColor: 'divider',
                             bgcolor: 'background.paper',
@@ -464,7 +517,7 @@ const Layout = ({ children }) => {
                         easing: theme.transitions.easing.sharp,
                         duration: theme.transitions.duration.enteringScreen,
                     }),
-                    pt: '80px', // AppBar height + spacing
+                    pt: '80px',
                     background: mode === 'dark'
                         ? 'linear-gradient(135deg, #0f172a 0%, #1e1b4b 100%)'
                         : 'linear-gradient(135deg, #f8fafc 0%, #e0e7ff 100%)',

@@ -1,11 +1,8 @@
 const API_BASE_URL = 'http://127.0.0.1:8000/api';
 
 type HttpMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
-
 type QueryValue = string | number | boolean | null | undefined;
-
 type QueryParams = Record<string, QueryValue>;
-
 type ApiHeaders = Record<string, string>;
 
 interface ApiFetchOptions extends Omit<RequestInit, 'headers' | 'body' | 'method'> {
@@ -21,6 +18,86 @@ interface ApiErrorResponse {
 
 type Id = string | number;
 
+// ============ EXPORTED INTERFACES (magamit sa ubang files) ============
+export interface User {
+    id: number;
+    name: string;
+    email: string;
+    is_admin?: boolean;
+    is_active?: boolean;
+    created_at?: string;
+    updated_at?: string;
+}
+
+export interface LoginResponse {
+    api_token: string;
+    user: User;
+}
+
+export interface RegisterResponse {
+    api_token: string;
+    user: User;
+}
+
+export interface Transaction {
+    id: number;
+    amount: number;
+    category_id: number;
+    category_name: string;
+    note?: string;
+    type: 'income' | 'expense';
+    date: string;
+    created_at: string;
+}
+
+export interface Category {
+    id: number;
+    name: string;
+    type: 'income' | 'expense';
+    color?: string;
+    user_id?: number;
+}
+
+export interface DashboardData {
+    total_income: number;
+    total_expense: number;
+    balance: number;
+    recent_transactions: Transaction[];
+}
+
+export interface Budget {
+    id: number;
+    category_id: number;
+    category_name: string;
+    amount: number;
+    spent: number;
+    remaining: number;
+    month: string;
+    year: number;
+}
+
+export interface AIInsight {
+    id?: number;
+    title: string;
+    description: string;
+    type: 'warning' | 'info' | 'success' | 'tip';
+    actionable?: boolean;
+    action_url?: string;
+}
+
+export interface ChatMessage {
+    role: 'user' | 'assistant';
+    content: string;
+    timestamp?: string;
+}
+
+export interface ChatResponse {
+    message: string;
+    conversation_id?: string;
+}
+// =========================================================================
+
+// ============ INTERNAL PAYLOAD INTERFACES (dili exported) ============
 interface RegisterPayload {
     name: string;
     email: string;
@@ -71,6 +148,7 @@ interface ChatOptions {
     mode?: 'conversation' | 'statistical';
     speed?: 'fast' | 'planning';
 }
+// =========================================================================
 
 const getCookie = (name: string): string | null => {
     const value = `; ${document.cookie}`;
@@ -159,7 +237,8 @@ const apiFetch = async <T = unknown>(
 };
 
 export const api = {
-    register: async <T = unknown>(
+    // ============ AUTHENTICATION ============
+    register: async <T = RegisterResponse>(
         name: string,
         email: string,
         password: string
@@ -176,7 +255,7 @@ export const api = {
         });
     },
 
-    login: async <T = unknown>(
+    login: async <T = LoginResponse>(
         email: string,
         password: string
     ): Promise<T> => {
@@ -191,13 +270,29 @@ export const api = {
         });
     },
 
-    logout: async <T = unknown>(): Promise<T> => {
+    logout: async <T = { message: string }>(): Promise<T> => {
         return apiFetch<T>('/logout', {
             method: 'POST',
         });
     },
 
-    getDashboard: async <T = unknown>(
+    getUser: async <T = User>(
+        options: ApiFetchOptions = {}
+    ): Promise<T> => {
+        return apiFetch<T>('/user', options);
+    },
+
+    updateProfile: async <T = User>(
+        data: ProfilePayload
+    ): Promise<T> => {
+        return apiFetch<T>('/profile', {
+            method: 'PUT',
+            body: JSON.stringify(data),
+        });
+    },
+
+    // ============ DASHBOARD & TRANSACTIONS ============
+    getDashboard: async <T = DashboardData>(
         params: QueryParams = {},
         options: ApiFetchOptions = {}
     ): Promise<T> => {
@@ -209,7 +304,7 @@ export const api = {
         return apiFetch<T>(endpoint, options);
     },
 
-    getTransactions: async <T = unknown>(
+    getTransactions: async <T = { data: Transaction[]; meta?: any }>(
         params: QueryParams = {},
         options: ApiFetchOptions = {}
     ): Promise<T> => {
@@ -221,7 +316,7 @@ export const api = {
         return apiFetch<T>(endpoint, options);
     },
 
-    createTransaction: async <T = unknown>(
+    createTransaction: async <T = Transaction>(
         data: TransactionPayload
     ): Promise<T> => {
         return apiFetch<T>('/transactions', {
@@ -230,7 +325,7 @@ export const api = {
         });
     },
 
-    updateTransaction: async <T = unknown>(
+    updateTransaction: async <T = Transaction>(
         id: Id,
         data: TransactionPayload
     ): Promise<T> => {
@@ -240,19 +335,14 @@ export const api = {
         });
     },
 
-    deleteTransaction: async <T = unknown>(id: Id): Promise<T> => {
+    deleteTransaction: async <T = { message: string }>(id: Id): Promise<T> => {
         return apiFetch<T>(`/transactions/${id}`, {
             method: 'DELETE',
         });
     },
 
-    getUser: async <T = unknown>(
-        options: ApiFetchOptions = {}
-    ): Promise<T> => {
-        return apiFetch<T>('/user', options);
-    },
-
-    getCategories: async <T = unknown>(
+    // ============ CATEGORIES ============
+    getCategories: async <T = Category[]>(
         type: 'income' | 'expense' | null = null,
         options: ApiFetchOptions = {}
     ): Promise<T> => {
@@ -261,7 +351,7 @@ export const api = {
         return apiFetch<T>(`/categories${queryString}`, options);
     },
 
-    createCategory: async <T = unknown>(
+    createCategory: async <T = Category>(
         data: CategoryPayload
     ): Promise<T> => {
         return apiFetch<T>('/categories', {
@@ -270,7 +360,7 @@ export const api = {
         });
     },
 
-    updateCategory: async <T = unknown>(
+    updateCategory: async <T = Category>(
         id: Id,
         data: CategoryPayload
     ): Promise<T> => {
@@ -280,19 +370,20 @@ export const api = {
         });
     },
 
-    deleteCategory: async <T = unknown>(id: Id): Promise<T> => {
+    deleteCategory: async <T = { message: string }>(id: Id): Promise<T> => {
         return apiFetch<T>(`/categories/${id}`, {
             method: 'DELETE',
         });
     },
 
-    getUsers: async <T = unknown>(
+    // ============ USER MANAGEMENT (Admin) ============
+    getUsers: async <T = { data: User[]; meta?: any }>(
         options: ApiFetchOptions = {}
     ): Promise<T> => {
         return apiFetch<T>('/users', options);
     },
 
-    updateUser: async <T = unknown>(
+    updateUser: async <T = User>(
         id: Id,
         data: UserPayload
     ): Promise<T> => {
@@ -302,41 +393,34 @@ export const api = {
         });
     },
 
-    toggleUserStatus: async <T = unknown>(id: Id): Promise<T> => {
+    toggleUserStatus: async <T = User>(id: Id): Promise<T> => {
         return apiFetch<T>(`/users/${id}/toggle-status`, {
             method: 'POST',
         });
     },
 
-    getBudgets: async <T = unknown>(
+    // ============ BUDGETS ============
+    getBudgets: async <T = Budget[]>(
         options: ApiFetchOptions = {}
     ): Promise<T> => {
         return apiFetch<T>('/budgets', options);
     },
 
-    setBudget: async <T = unknown>(data: BudgetPayload): Promise<T> => {
+    setBudget: async <T = Budget>(data: BudgetPayload): Promise<T> => {
         return apiFetch<T>('/budgets', {
             method: 'POST',
             body: JSON.stringify(data),
         });
     },
 
-    deleteBudget: async <T = unknown>(id: Id): Promise<T> => {
+    deleteBudget: async <T = { message: string }>(id: Id): Promise<T> => {
         return apiFetch<T>(`/budgets/${id}`, {
             method: 'DELETE',
         });
     },
 
-    updateProfile: async <T = unknown>(
-        data: ProfilePayload
-    ): Promise<T> => {
-        return apiFetch<T>('/profile', {
-            method: 'PUT',
-            body: JSON.stringify(data),
-        });
-    },
-
-    saveGeminiApiKey: async <T = unknown>(
+    // ============ AI / GEMINI FEATURES ============
+    saveGeminiApiKey: async <T = { message: string }>(
         apiKey: string
     ): Promise<T> => {
         return apiFetch<T>('/ai/api-key', {
@@ -347,19 +431,19 @@ export const api = {
         });
     },
 
-    checkApiKey: async <T = unknown>(
+    checkApiKey: async <T = { has_key: boolean; valid?: boolean }>(
         options: ApiFetchOptions = {}
     ): Promise<T> => {
         return apiFetch<T>('/ai/check-key', options);
     },
 
-    getAIInsights: async <T = unknown>(
+    getAIInsights: async <T = AIInsight[]>(
         options: ApiFetchOptions = {}
     ): Promise<T> => {
         return apiFetch<T>('/ai/insights', options);
     },
 
-    analyzeSpending: async <T = unknown>(
+    analyzeSpending: async <T = { analysis: string; recommendations: string[] }>(
         options: ApiFetchOptions = {}
     ): Promise<T> => {
         return apiFetch<T>('/ai/analyze', {
@@ -368,13 +452,13 @@ export const api = {
         });
     },
 
-    getBudgetRecommendations: async <T = unknown>(
+    getBudgetRecommendations: async <T = { recommendations: Budget[]; message: string }>(
         options: ApiFetchOptions = {}
     ): Promise<T> => {
         return apiFetch<T>('/ai/budget-recommendations', options);
     },
 
-    chatWithAI: async <T = unknown>(
+    chatWithAI: async <T = ChatResponse>(
         message: string,
         options: ChatOptions = {}
     ): Promise<T> => {

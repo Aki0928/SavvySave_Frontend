@@ -4,7 +4,7 @@ import {
     BrowserRouter as Router,
     Routes,
     Route,
-    Navigate,
+    Navigate
 } from 'react-router-dom';
 
 import { AuthProvider, useAuth } from './auth/AuthContext';
@@ -22,25 +22,31 @@ import AILab from './pages/AILab';
 import LandingPage from './pages/LandingPage';
 import Profile from './pages/Profile';
 
-interface AuthUser {
-    id?: string | number;
-    name?: string;
-    email?: string;
+// ============ TYPES ============
+interface User {
+    id: number;
+    name: string;
+    email: string;
     is_admin?: boolean;
     is_active?: boolean;
 }
 
-interface AuthContextValue {
-    user?: AuthUser | null;
+interface AuthContextType {
+    user: User | null;
+    login: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
+    register: (name: string, email: string, password: string) => Promise<{ success: boolean; error?: string }>;
+    logout: () => Promise<void>;
+    loading: boolean;
 }
 
 interface ProtectedRouteProps {
     children: ReactNode;
 }
 
+// ============ PROTECTED ROUTE COMPONENT ============
 const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
-    const auth = useAuth() as unknown as AuthContextValue;
-    const user = auth?.user;
+    const auth = useAuth() as AuthContextType;
+    const { user } = auth;
 
     if (!user) {
         return <Navigate to="/login" replace />;
@@ -49,83 +55,88 @@ const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
     return <Layout>{children}</Layout>;
 };
 
+// ============ MAIN APP COMPONENT ============
 const App = () => {
     return (
         <Router>
             <SnackbarProvider>
                 <AuthProvider>
-                    <Routes>
-                        <Route path="/" element={<LandingPage />} />
+                    {/* Main app container with Tailwind classes */}
+                    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
+                        <Routes>
+                            {/* Public Routes */}
+                            <Route path="/" element={<LandingPage />} />
+                            <Route path="/login" element={<Login />} />
+                            <Route path="/register" element={<Register />} />
+                            
+                            {/* Protected Routes (require authentication) */}
+                            <Route
+                                path="/dashboard"
+                                element={
+                                    <ProtectedRoute>
+                                        <Dashboard />
+                                    </ProtectedRoute>
+                                }
+                            />
 
-                        <Route path="/login" element={<Login />} />
+                            <Route
+                                path="/add"
+                                element={
+                                    <ProtectedRoute>
+                                        <AddSaving />
+                                    </ProtectedRoute>
+                                }
+                            />
 
-                        <Route path="/register" element={<Register />} />
+                            <Route
+                                path="/analysis"
+                                element={
+                                    <ProtectedRoute>
+                                        <Analysis />
+                                    </ProtectedRoute>
+                                }
+                            />
 
-                        <Route
-                            path="/dashboard"
-                            element={
-                                <ProtectedRoute>
-                                    <Dashboard />
-                                </ProtectedRoute>
-                            }
-                        />
+                            <Route
+                                path="/categories"
+                                element={
+                                    <ProtectedRoute>
+                                        <Categories />
+                                    </ProtectedRoute>
+                                }
+                            />
 
-                        <Route
-                            path="/add"
-                            element={
-                                <ProtectedRoute>
-                                    <AddSaving />
-                                </ProtectedRoute>
-                            }
-                        />
+                            <Route
+                                path="/users"
+                                element={
+                                    <ProtectedRoute>
+                                        <UserManagement />
+                                    </ProtectedRoute>
+                                }
+                            />
 
-                        <Route
-                            path="/analysis"
-                            element={
-                                <ProtectedRoute>
-                                    <Analysis />
-                                </ProtectedRoute>
-                            }
-                        />
+                            <Route
+                                path="/profile"
+                                element={
+                                    <ProtectedRoute>
+                                        <Profile />
+                                    </ProtectedRoute>
+                                }
+                            />
 
-                        <Route
-                            path="/categories"
-                            element={
-                                <ProtectedRoute>
-                                    <Categories />
-                                </ProtectedRoute>
-                            }
-                        />
+                            <Route
+                                path="/ai-lab"
+                                element={
+                                    <ProtectedRoute>
+                                        <AILab />
+                                    </ProtectedRoute>
+                                }
+                            />
 
-                        <Route
-                            path="/users"
-                            element={
-                                <ProtectedRoute>
-                                    <UserManagement />
-                                </ProtectedRoute>
-                            }
-                        />
-
-                        <Route
-                            path="/profile"
-                            element={
-                                <ProtectedRoute>
-                                    <Profile />
-                                </ProtectedRoute>
-                            }
-                        />
-
-                        <Route
-                            path="/ai-lab"
-                            element={
-                                <ProtectedRoute>
-                                    <AILab />
-                                </ProtectedRoute>
-                            }
-                        />
-
-                        <Route path="*" element={<Navigate to="/" replace />} />
-                    </Routes>
+                            {/* Catch all - 404 redirect to home */}
+                            <Route path="*" element={<Navigate to="/" replace />} />
+                        </Routes>
+                    </div>
                 </AuthProvider>
             </SnackbarProvider>
         </Router>

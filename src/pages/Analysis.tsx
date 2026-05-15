@@ -3,7 +3,6 @@ import { useAuth } from '../auth/AuthContext';
 import { useMethods } from '../hooks/useMethods';
 import {
     Box,
-
     Card,
     CardContent,
     Typography,
@@ -27,9 +26,38 @@ import {
     Warning,
 } from '@mui/icons-material';
 
+// ============ TYPES ============
+interface Transaction {
+    id: number;
+    amount: string | number;
+    type: 'income' | 'expense';
+    category: string;
+    category_id: number;
+    note?: string;
+    date: string;
+}
+
+interface Report {
+    income: number;
+    expenses: number;
+    balance: number;
+    count: number;
+    averageTransaction: number;
+    topCategory: string;
+    topCategoryAmount: number;
+    expenseRatio: number;
+    insights: string[];
+}
+
+interface CategoryTotals {
+    [key: string]: number;
+}
+
+// ============ COMPONENT ============
 const Analysis = () => {
     const { user } = useAuth();
-    const [report, setReport] = useState(null);
+    const [report, setReport] = useState<Report | null>(null);
+    const [loading, setLoading] = useState<boolean>(true);
 
     const { get } = useMethods();
 
@@ -37,25 +65,38 @@ const Analysis = () => {
         const analyzeData = async () => {
             if (user) {
                 try {
-                    const transactions = await get('/transactions');
-                    // Logic remains the same, just using fetched transactions
-                    const income = transactions.filter(t => t.type === 'income').reduce((acc, t) => acc + parseFloat(t.amount), 0);
-                    const expenses = transactions.filter(t => t.type === 'expense').reduce((acc, t) => acc + parseFloat(t.amount), 0);
+                    const transactions = await get<Transaction[]>('/transactions');
+                    
+                    // Calculate income and expenses
+                    const income = transactions
+                        .filter(t => t.type === 'income')
+                        .reduce((acc, t) => acc + parseFloat(String(t.amount)), 0);
+                    
+                    const expenses = transactions
+                        .filter(t => t.type === 'expense')
+                        .reduce((acc, t) => acc + parseFloat(String(t.amount)), 0);
+                    
                     const balance = income - expenses;
                     const count = transactions.length;
                     const averageTransaction = count > 0 ? (income + expenses) / count : 0;
 
-                    const categories = {};
+                    // Calculate category totals
+                    const categories: CategoryTotals = {};
                     transactions.forEach((t) => {
-                        if (!categories[t.category]) {
-                            categories[t.category] = 0;
+                        const categoryName = t.category;
+                        if (!categories[categoryName]) {
+                            categories[categoryName] = 0;
                         }
-                        categories[t.category] += parseFloat(t.amount);
+                        categories[categoryName] += parseFloat(String(t.amount));
                     });
 
-                    const topCategory = Object.entries(categories).sort((a, b) => b[1] - a[1])[0];
+                    // Find top category
+                    const topCategoryEntry = Object.entries(categories).sort((a, b) => b[1] - a[1])[0];
+                    const topCategory = topCategoryEntry ? topCategoryEntry[0] : 'None';
+                    const topCategoryAmount = topCategoryEntry ? topCategoryEntry[1] : 0;
 
-                    const insights = [];
+                    // Generate insights
+                    const insights: string[] = [];
 
                     if (count === 0) {
                         insights.push("Start tracking transactions to get personalized insights!");
@@ -68,8 +109,8 @@ const Analysis = () => {
                             insights.push(`Warning: You've spent $${Math.abs(balance).toFixed(2)} more than you've earned.`);
                         }
 
-                        if (topCategory) {
-                            insights.push(`Your most active category is ${topCategory[0]} with $${topCategory[1].toFixed(2)}.`);
+                        if (topCategory !== 'None') {
+                            insights.push(`Your most active category is ${topCategory} with $${topCategoryAmount.toFixed(2)}.`);
                         }
 
                         const expenseRatio = income > 0 ? (expenses / income) * 100 : 0;
@@ -90,23 +131,42 @@ const Analysis = () => {
                         balance,
                         count,
                         averageTransaction,
-                        topCategory: topCategory ? topCategory[0] : 'None',
-                        topCategoryAmount: topCategory ? topCategory[1] : 0,
+                        topCategory,
+                        topCategoryAmount,
                         expenseRatio: income > 0 ? (expenses / income) * 100 : 0,
                         insights,
                     });
                 } catch (e) {
                     console.error('Analysis failed', e);
+                } finally {
+                    setLoading(false);
                 }
             }
         };
+        
         analyzeData();
     }, [user, get]);
 
-    if (!report) return <Typography>Loading analysis...</Typography>;
+    // Loading state
+    if (loading) {
+        return (
+            <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%' }}>
+                <Typography>Loading analysis...</Typography>
+            </Box>
+        );
+    }
+
+    if (!report) {
+        return (
+            <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%' }}>
+                <Typography>No data available. Please add some transactions.</Typography>
+            </Box>
+        );
+    }
 
     return (
         <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column', gap: 2 }}>
+            {/* Header */}
             <Box>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 0.5 }}>
                     <Avatar sx={{ bgcolor: 'secondary.main', width: 40, height: 40 }}>
@@ -121,7 +181,8 @@ const Analysis = () => {
                 </Typography>
             </Box>
 
-            <Grid container spacing={2} >
+            <Grid container spacing={2}>
+                {/* Financial Metrics Card */}
                 <Grid size={{ xs: 12, md: 5 }}>
                     <Card
                         sx={{
@@ -139,6 +200,7 @@ const Analysis = () => {
                             </Box>
 
                             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+                                {/* Net Balance */}
                                 <Box
                                     sx={{
                                         display: 'flex',
@@ -161,6 +223,7 @@ const Analysis = () => {
                                     />
                                 </Box>
 
+                                {/* Top Category */}
                                 <Box
                                     sx={{
                                         display: 'flex',
@@ -182,6 +245,7 @@ const Analysis = () => {
                                     />
                                 </Box>
 
+                                {/* Transactions Count */}
                                 <Box
                                     sx={{
                                         display: 'flex',
@@ -204,6 +268,7 @@ const Analysis = () => {
                                     />
                                 </Box>
 
+                                {/* Expense Ratio Progress Bar */}
                                 <Box sx={{ p: 2, bgcolor: 'background.paper', borderRadius: 2 }}>
                                     <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
                                         <Typography variant="body2" sx={{ fontWeight: 600 }}>
@@ -225,6 +290,7 @@ const Analysis = () => {
                     </Card>
                 </Grid>
 
+                {/* AI Insights Card */}
                 <Grid size={{ xs: 12, md: 7 }}>
                     <Card
                         sx={{
